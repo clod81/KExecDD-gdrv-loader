@@ -24,6 +24,9 @@ extern "C" {
 #endif
 
 // swind2.cpp
+
+void CIInfo();
+	
 NTSTATUS
 WindLoadDriver(
 	_In_ PWCHAR LoaderName,

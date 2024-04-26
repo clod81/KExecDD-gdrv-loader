@@ -101,6 +101,8 @@ QueryCiOptions(
 	hde64s hs;
 
 	const PUCHAR CiInitialize = reinterpret_cast<PUCHAR>(GetProcedureAddress(reinterpret_cast<ULONG_PTR>(MappedBase), "CiInitialize"));
+	Printf(L"CiInitialize:    %p\n", CiInitialize);
+
 	if (CiInitialize == nullptr)
 		return 0;
 
@@ -114,7 +116,7 @@ QueryCiOptions(
 			if (CiInitialize[c] == 0xE8)
 				j++;
 
-			if (j > 1)
+			if (j > 2)
 			{
 				Rel = *reinterpret_cast<PLONG>(CiInitialize + c + 1);
 				break;
@@ -147,6 +149,8 @@ QueryCiOptions(
 	}
 
 	const PUCHAR CipInitialize = CiInitialize + c + 5 + Rel;
+
+	Printf(L"CipInitialize:   %p\n", CipInitialize);
 	c = 0;
 	do
 	{
@@ -166,6 +170,10 @@ QueryCiOptions(
 
 	*gCiOptionsAddress = KernelBase + MappedCiOptions - static_cast<PUCHAR>(MappedBase);
 
+	Printf(L"MappedBase:      %p\n", MappedBase);
+	Printf(L"MappedCiOptions: %p\n", MappedCiOptions);
+	Printf(L">>>>>>>>>>> Offset CiOptions: %p\n", (MappedCiOptions - MappedBase));
+		
 	return Rel;
 }
 
@@ -605,4 +613,10 @@ WindUnloadDriver(
 						&SeLoadDriverWasEnabled);
 
 	return Status;
+}
+
+
+void CIInfo() {
+	PVOID CiOptionsAddress;
+	AnalyzeCi(&CiOptionsAddress);
 }
