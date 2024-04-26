@@ -1,9 +1,14 @@
-# gdrv-loader
-Kernel driver loader using vulnerable gigabyte driver (https://www.secureauth.com/labs/advisories/gigabyte-drivers-elevation-privilege-vulnerabilities) to load a unsigned driver.
+# KexecDD-gdrv-loader
+This is the same KExecDD exploit (https://github.com/floesen/KExecDD).
+
+Rather than having to find the correct NTOSKRNL_WRITE_GADGET and CI_OPTIONS using a debugger for Kernel debugging on the target system, this comes together with a modified version of https://github.com/v1k1ngfr/gdrv-loader to calculate these offsets on the target system. A lot of the `gdrv-loader` code base is left untouched and not really needed.
+
 
 ## usage
-open command prompt as admin
 
-gdrv-loader.exe gdrv.sys driver.sys to load unsigned driver
+Coming soon
 
-gdrv-loader.exe driver.sys to unload unsigned driver
+
+## More information
+
+Coming soon
