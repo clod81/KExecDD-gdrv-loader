@@ -6,7 +6,7 @@ Rather than having to find the correct NTOSKRNL_WRITE_GADGET and CI_OPTIONS usin
 Note: the stubs for `nt!FsRtlInitializeFileLock` and `ci!CiInitialize` might change in newer versions which might break the offset calculation.
 This has been tested on a Windows 10 (Build 19045.4191).
 
-## usage
+## Usage
 
 Coming soon
 
