@@ -51,7 +51,7 @@
     <TargetName>swind2</TargetName>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
-    <TargetName>swind2</TargetName>
+    <TargetName>offsets</TargetName>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <ClCompile>
@@ -133,7 +133,6 @@
   <ItemGroup>
     <ClCompile Include="main.cpp" />
     <ClCompile Include="pe.cpp" />
-    <ClCompile Include="swind2.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="global.h" />
