@@ -54,30 +54,6 @@ RtlMsToTicks(
 	return 10000LL * static_cast<LONGLONG>(Milliseconds);
 }
 
-FORCEINLINE
-VOID
-RtlSleep(
-	_In_ ULONG Milliseconds
-	)
-{
-	LARGE_INTEGER Timeout;
-	Timeout.QuadPart = -1 * RtlMsToTicks(Milliseconds);
-	NtDelayExecution(FALSE, &Timeout);
-}
-
-CONSTEXPR
-FORCEINLINE
-BOOLEAN
-IsWin64(
-	)
-{
-#if defined(_WIN64) || defined(_M_AMD64)
-	return TRUE;
-#else
-	return FALSE;
-#endif
-}
-
 // Ntdll string functions, not in ntdll.h as they are incompatible with the CRT
 typedef CONST WCHAR *LPCWCHAR, *PCWCHAR;
 
@@ -121,21 +97,6 @@ Printf(
 	ULONG N = _vsnwprintf(Buffer, 512, Format, VaList);
 	va_end(VaList);
 	WriteConsoleW(NtCurrentPeb()->ProcessParameters->StandardOutput, Buffer, N, &N, nullptr);
-}
-
-inline
-VOID
-WaitForKey(
-	)
-{
-	HANDLE StdIn = NtCurrentPeb()->ProcessParameters->StandardInput;
-	INPUT_RECORD InputRecord = { 0 };
-	ULONG NumRead;
-	while (InputRecord.EventType != KEY_EVENT || !InputRecord.Event.KeyEvent.bKeyDown || InputRecord.Event.KeyEvent.dwControlKeyState !=
-		(InputRecord.Event.KeyEvent.dwControlKeyState & ~(RIGHT_CTRL_PRESSED | LEFT_CTRL_PRESSED)))
-	{
-		ReadConsoleInputW(StdIn, &InputRecord, 1, &NumRead);
-	}
 }
 
 #ifdef NT_ANALYSIS_ASSUME
