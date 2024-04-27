@@ -27,23 +27,6 @@ extern "C" {
 
 void CIInfo();
 	
-NTSTATUS
-WindLoadDriver(
-	_In_ PWCHAR LoaderName,
-	_In_ PWCHAR DriverName,
-	_In_ BOOLEAN Hidden
-	);
-
-NTSTATUS
-WindUnloadDriver(
-	_In_ PWCHAR DriverName,
-	_In_ BOOLEAN Hidden
-	);
-
-// sysinfo.cpp
-NTSTATUS
-PrintSystemInformation(
-	);
 
 // pe.cpp
 NTSTATUS
@@ -60,21 +43,6 @@ GetProcedureAddress(
 	_In_ PCSTR RoutineName
 	);
 
-FORCEINLINE
-ULONG
-RtlNtMajorVersion(
-	)
-{
-	return *reinterpret_cast<PULONG>(0x7FFE0000 + 0x026C);
-}
-
-FORCEINLINE
-ULONG
-RtlNtMinorVersion(
-	)
-{
-	return *reinterpret_cast<PULONG>(0x7FFE0000 + 0x0270);
-}
 
 CONSTEXPR
 FORCEINLINE
