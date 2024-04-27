@@ -1,10 +1,8 @@
 // cl.exe /nologo /MT /Ox /W0 /GS- /DNDEBUG loader.c /link Advapi32.lib /OUT:loader.exe /SUBSYSTEM:CONSOLE /MACHINE:x64
 
 #include <windows.h>
-#include <winnt.h>
 #include <TlHelp32.h>
 #include <psapi.h>
-#include <stdio.h>
 
 int GetLsassPid() {
   HANDLE hSnapshot;
