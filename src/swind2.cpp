@@ -34,10 +34,7 @@ void FindWriteGadget(_In_ PVOID MappedBase)
 	Printf(L"> Offset asm mov:   %p\n", (mov - MappedBase));
 }
 
-// For Windows 8 and worse
-void QueryCiOptions(
-	_In_ PVOID MappedBase
-)
+void QueryCiOptions(_In_ PVOID MappedBase)
 {
 	ULONG c;
 	LONG Rel = 0;
@@ -95,7 +92,7 @@ void QueryCiOptions(
 	Printf(L"> Offset CiOptions: %p\n", (MappedCiOptions - MappedBase));
 }
 
-void GetWriteGadget()
+void GetWriteGadgetOffset()
 {
 	WCHAR Path[MAX_PATH];
 	const CHAR NtoskrnlExe[] = "ntoskrnl.exe";
@@ -116,17 +113,13 @@ Exit:
 	return;
 }
 
-static
-NTSTATUS
-AnalyzeCi()
+void GetCiOptionsOffset()
 {
 	// Map file as SEC_IMAGE
 	WCHAR Path[MAX_PATH];
 	const CHAR CiDll[] = "CI.dll";
 
-	_snwprintf(Path, MAX_PATH / sizeof(WCHAR), L"%ls\\System32\\%hs",
-		SharedUserData->NtSystemRoot,
-		CiDll);
+	_snwprintf(Path, MAX_PATH / sizeof(WCHAR), L"%ls\\System32\\%hs", SharedUserData->NtSystemRoot, CiDll);
 
 	PVOID MappedBase;
 	SIZE_T ViewSize;
@@ -134,26 +127,19 @@ AnalyzeCi()
 	if (!NT_SUCCESS(Status))
 	{
 		Printf(L"Failed to map %ls: %08X\n", Path, Status);
-		return Status;
+		return;
 	}
 
-	// // Find CI.dll!g_CiOptions
-	// ULONG_PTR CiDllBase;
-	// Status = FindKernelModule(CiDll, &CiDllBase);
-	// if (!NT_SUCCESS(Status))
-	// 	goto Exit;
-
-	// ULONG_PTR gCiOptionsAddress;
-	QueryCiOptions(MappedBase); //, CiDllBase, &gCiOptionsAddress);
+	QueryCiOptions(MappedBase);
 
 Exit:
 	NtUnmapViewOfSection(NtCurrentProcess, MappedBase);
-	return Status;
+	return;
 }
 
 void CIInfo() {
 	Printf(L"\n");
-	AnalyzeCi();
+	GetCiOptionsOffset();
 	Printf(L"\n");
-	GetWriteGadget();
+	GetWriteGadgetOffset();
 }
