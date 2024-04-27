@@ -2,7 +2,6 @@
 
 #include <windows.h>
 #include <TlHelp32.h>
-#include <psapi.h>
 
 int GetLsassPid() {
   HANDLE hSnapshot;
@@ -59,7 +58,7 @@ VOID main(int argc, char* argv[]) {
 
     if(argc >= 2) {
         op = atoi(argv[1]);
-        if(op != 0 or op != 6)
+        if(op != 0 || op != 6)
             op = 6;
     }
 
