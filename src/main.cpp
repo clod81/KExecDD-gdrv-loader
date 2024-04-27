@@ -91,10 +91,7 @@ void GetWriteGadgetOffset()
 		return;
 	}
 	FindWriteGadget(MappedBase);
-
-Exit:
 	NtUnmapViewOfSection(NtCurrentProcess, MappedBase);
-	return;
 }
 
 void GetCiOptionsOffset()
@@ -115,10 +112,7 @@ void GetCiOptionsOffset()
 	}
 
 	QueryCiOptions(MappedBase);
-
-Exit:
 	NtUnmapViewOfSection(NtCurrentProcess, MappedBase);
-	return;
 }
 
 void main()
