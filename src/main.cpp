@@ -121,15 +121,10 @@ Exit:
 	return;
 }
 
-void CIInfo() {
+void main()
+{
 	Printf(L"\n");
 	GetCiOptionsOffset();
 	Printf(L"\n");
 	GetWriteGadgetOffset();
-}
-
-
-void wmain()
-{
-	CIInfo();
 }
