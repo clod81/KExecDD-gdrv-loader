@@ -1,44 +1,6 @@
 #include "global.h"
 #include "hde/hde64.h"
 
-static
-NTSTATUS
-FindKernelModule(
-	_In_ PCCH ModuleName,
-	_Out_ PULONG_PTR ModuleBase
-)
-{
-	*ModuleBase = 0;
-
-	ULONG Size = 0;
-	NTSTATUS Status;
-	if ((Status = NtQuerySystemInformation(SystemModuleInformation, nullptr, 0, &Size)) != STATUS_INFO_LENGTH_MISMATCH)
-		return Status;
-
-	const PRTL_PROCESS_MODULES Modules = static_cast<PRTL_PROCESS_MODULES>(RtlAllocateHeap(RtlProcessHeap(), HEAP_ZERO_MEMORY, 2 * static_cast<SIZE_T>(Size)));
-	Status = NtQuerySystemInformation(SystemModuleInformation,
-		Modules,
-		2 * Size,
-		nullptr);
-	if (!NT_SUCCESS(Status))
-		goto Exit;
-
-	for (ULONG i = 0; i < Modules->NumberOfModules; ++i)
-	{
-		RTL_PROCESS_MODULE_INFORMATION Module = Modules->Modules[i];
-		if (_stricmp(ModuleName, reinterpret_cast<PCHAR>(Module.FullPathName) + Module.OffsetToFileName) == 0)
-		{
-			*ModuleBase = reinterpret_cast<ULONG_PTR>(Module.ImageBase);
-			Status = STATUS_SUCCESS;
-			break;
-		}
-	}
-
-Exit:
-	RtlFreeHeap(RtlProcessHeap(), 0, Modules);
-	return Status;
-}
-
 void FindWriteGadget(_In_ PVOID MappedBase)
 {
 	const PUCHAR FsRtlInitializeFileLock = reinterpret_cast<PUCHAR>(GetProcedureAddress(reinterpret_cast<ULONG_PTR>(MappedBase), "FsRtlInitializeFileLock"));
@@ -46,7 +8,7 @@ void FindWriteGadget(_In_ PVOID MappedBase)
 	if (FsRtlInitializeFileLock == nullptr)
 		return;
 
-	Printf(L"FsRtlInitializeFileLock: %p\n", FsRtlInitializeFileLock);
+	// Printf(L"FsRtlInitializeFileLock: %p\n", FsRtlInitializeFileLock);
 
 	LONG Rel = 0;
 	hde64s hs;
@@ -68,76 +30,49 @@ void FindWriteGadget(_In_ PVOID MappedBase)
 
 	const PUCHAR mov = FsRtlInitializeFileLock + Rel + 2;
 
-	Printf(L"ntBase:                  %p\n", MappedBase);
-	Printf(L"\n\n>>>>>>>>>>> Offset asm mov: %p\n", (mov - MappedBase));
+	// Printf(L"ntBase:                  %p\n", MappedBase);
+	Printf(L"> Offset asm mov:   %p\n", (mov - MappedBase));
 }
 
 // For Windows 8 and worse
-static
-LONG
-QueryCiOptions(
-	_In_ PVOID MappedBase,
-	_In_ ULONG_PTR KernelBase,
-	_Out_ PULONG_PTR gCiOptionsAddress
+void QueryCiOptions(
+	_In_ PVOID MappedBase
 )
 {
-	*gCiOptionsAddress = 0;
-
 	ULONG c;
 	LONG Rel = 0;
 	hde64s hs;
 
 	const PUCHAR CiInitialize = reinterpret_cast<PUCHAR>(GetProcedureAddress(reinterpret_cast<ULONG_PTR>(MappedBase), "CiInitialize"));
-	Printf(L"CiInitialize:    %p\n", CiInitialize);
+	// Printf(L"CiInitialize:    %p\n", CiInitialize);
 
 	if (CiInitialize == nullptr)
-		return 0;
+		return;
 
-	if (NtCurrentPeb()->OSBuildNumber >= 16299)
+	c = 0;
+	ULONG j = 0;
+	do
 	{
-		c = 0;
-		ULONG j = 0;
-		do
+		// call CipInitialize
+		if (CiInitialize[c] == 0xE8)
+			j++;
+
+		if (j > 2)
 		{
-			// call CipInitialize
-			if (CiInitialize[c] == 0xE8)
-				j++;
+			Rel = *reinterpret_cast<PLONG>(CiInitialize + c + 1);
+			break;
+		}
 
-			if (j > 2)
-			{
-				Rel = *reinterpret_cast<PLONG>(CiInitialize + c + 1);
-				break;
-			}
+		hde64_disasm(CiInitialize + c, &hs);
+		if (hs.flags & F_ERROR)
+			break;
+		c += hs.len;
 
-			hde64_disasm(CiInitialize + c, &hs);
-			if (hs.flags & F_ERROR)
-				break;
-			c += hs.len;
-
-		} while (c < 256);
-	}
-	else
-	{
-		c = 0;
-		do
-		{
-			// jmp CipInitialize
-			if (CiInitialize[c] == 0xE9)
-			{
-				Rel = *reinterpret_cast<PLONG>(CiInitialize + c + 1);
-				break;
-			}
-			hde64_disasm(CiInitialize + c, &hs);
-			if (hs.flags & F_ERROR)
-				break;
-			c += hs.len;
-
-		} while (c < 256);
-	}
+	} while (c < 256);
 
 	const PUCHAR CipInitialize = CiInitialize + c + 5 + Rel;
 
-	Printf(L"CipInitialize:   %p\n", CipInitialize);
+	// Printf(L"CipInitialize:   %p\n", CipInitialize);
 	c = 0;
 	do
 	{
@@ -155,13 +90,9 @@ QueryCiOptions(
 
 	const PUCHAR MappedCiOptions = CipInitialize + c + 6 + Rel;
 
-	*gCiOptionsAddress = KernelBase + MappedCiOptions - static_cast<PUCHAR>(MappedBase);
-
-	Printf(L"CiBase:          %p\n", MappedBase);
-	Printf(L"MappedCiOptions: %p\n", MappedCiOptions);
-	Printf(L"\n\n>>>>>>>>>>> Offset CiOptions: %p\n", (MappedCiOptions - MappedBase));
-
-	return Rel;
+	// Printf(L"CiBase:          %p\n", MappedBase);
+	// Printf(L"MappedCiOptions: %p\n", MappedCiOptions);
+	Printf(L"> Offset CiOptions: %p\n", (MappedCiOptions - MappedBase));
 }
 
 void GetWriteGadget()
@@ -178,14 +109,6 @@ void GetWriteGadget()
 		Printf(L"Failed to map %ls: %08X\n", Path, Status);
 		return;
 	}
-
-	ULONG_PTR KernelBase;
-	Status = FindKernelModule(NtoskrnlExe, &KernelBase);
-	if (!NT_SUCCESS(Status)) {
-		Printf(L"Failed to FindKernelModule");
-		goto Exit;
-	}
-
 	FindWriteGadget(MappedBase);
 
 Exit:
@@ -197,15 +120,13 @@ static
 NTSTATUS
 AnalyzeCi()
 {
-
 	// Map file as SEC_IMAGE
 	WCHAR Path[MAX_PATH];
-	const CHAR NtoskrnlExe[] = "ntoskrnl.exe";
 	const CHAR CiDll[] = "CI.dll";
 
 	_snwprintf(Path, MAX_PATH / sizeof(WCHAR), L"%ls\\System32\\%hs",
 		SharedUserData->NtSystemRoot,
-		NtCurrentPeb()->OSBuildNumber >= 9200 ? CiDll : NtoskrnlExe);
+		CiDll);
 
 	PVOID MappedBase;
 	SIZE_T ViewSize;
@@ -216,14 +137,14 @@ AnalyzeCi()
 		return Status;
 	}
 
-	// Find CI.dll!g_CiOptions
-	ULONG_PTR CiDllBase;
-	Status = FindKernelModule(CiDll, &CiDllBase);
-	if (!NT_SUCCESS(Status))
-		goto Exit;
+	// // Find CI.dll!g_CiOptions
+	// ULONG_PTR CiDllBase;
+	// Status = FindKernelModule(CiDll, &CiDllBase);
+	// if (!NT_SUCCESS(Status))
+	// 	goto Exit;
 
-	ULONG_PTR gCiOptionsAddress;
-	QueryCiOptions(MappedBase, CiDllBase, &gCiOptionsAddress);
+	// ULONG_PTR gCiOptionsAddress;
+	QueryCiOptions(MappedBase); //, CiDllBase, &gCiOptionsAddress);
 
 Exit:
 	NtUnmapViewOfSection(NtCurrentProcess, MappedBase);
@@ -231,7 +152,8 @@ Exit:
 }
 
 void CIInfo() {
+	Printf(L"\n");
 	AnalyzeCi();
-	Printf(L"\n\n");
+	Printf(L"\n");
 	GetWriteGadget();
 }
