@@ -79,7 +79,7 @@ void QueryCiOptions(_In_ PVOID MappedBase)
 void GetWriteGadgetOffset()
 {
 	WCHAR Path[MAX_PATH];
-	const CHAR NtoskrnlExe[] = "ntoskrnl.exe";
+	unsigned char NtoskrnlExe[] = { 'n','t','o','s','k','r','n','l','.','e','x','e', 0x0 }; // "ntoskrnl.exe";
 	_snwprintf(Path, MAX_PATH / sizeof(WCHAR), L"%ls\\System32\\%hs", SharedUserData->NtSystemRoot, NtoskrnlExe);
 
 	PVOID MappedBase;
@@ -98,8 +98,7 @@ void GetCiOptionsOffset()
 {
 	// Map file as SEC_IMAGE
 	WCHAR Path[MAX_PATH];
-	const CHAR CiDll[] = "CI.dll";
-
+	unsigned char CiDll[] = { 'C','I','.','d','l','l', 0x0 }; // "CI.dll";
 	_snwprintf(Path, MAX_PATH / sizeof(WCHAR), L"%ls\\System32\\%hs", SharedUserData->NtSystemRoot, CiDll);
 
 	PVOID MappedBase;
