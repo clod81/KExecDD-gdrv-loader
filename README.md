@@ -54,4 +54,4 @@ exploit.exe 6
 
 ## More information
 
-Coming soon
+[LSASS rings KsecDD ext. 0](https://tierzerosecurity.co.nz/2024/04/29/kexecdd.html)
